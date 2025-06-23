@@ -130,7 +130,7 @@ jobs:
                 networks:
                   - orders-network
             
-              grafana:
+              orders-grafana:
                 image: grafana/grafana
                 container_name: orders-grafana
                 restart: always
