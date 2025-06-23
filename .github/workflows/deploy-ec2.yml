@@ -56,18 +56,32 @@ jobs:
           port: 22
           timeout: 180s
           command_timeout: 20m
-          script_stop: true
           debug: true
           script: |
+            # Verificar versiones de Docker y Docker Compose
+            docker --version
+            docker-compose --version
+            
+            # Mostrar contenedores actuales
+            echo "Contenedores actuales:"
+            docker ps
+            
+            # Crear directorio si no existe
+            mkdir -p ~/orders-update
             cd ~/orders-update
             
-            # Forzar eliminación de contenedores e imágenes
-            sudo docker-compose down
-            sudo docker rm -f orders-update orders-db orders-grafana || true
-            sudo docker rmi -f ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest || true
+            # Detener contenedores existentes
+            echo "Deteniendo contenedores existentes..."
+            docker-compose down || true
+            docker rm -f orders-update orders-db orders-grafana || true
             
-            # Forzar pull de la imagen más reciente
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
+            # Eliminar imágenes antiguas
+            echo "Eliminando imágenes antiguas..."
+            docker rmi -f ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest || true
+            
+            # Descargar imagen más reciente
+            echo "Descargando imagen más reciente..."
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
             
             # Crear .env file con secretos
             cat > .env << EOL
@@ -78,6 +92,7 @@ jobs:
             EOL
             
             # Crear o actualizar docker-compose.yml
+            echo "Creando docker-compose.yml..."
             cat > docker-compose.yml << EOL
             version: '3.8'
             
@@ -129,14 +144,42 @@ jobs:
             
             networks:
               orders-network:
-                name: orders-network
+                driver: bridge
             EOL
             
-            # Crear red si no existe
-            sudo docker network inspect orders-network >/dev/null 2>&1 || sudo docker network create orders-network
+            # Mostrar contenido del docker-compose.yml
+            echo "Contenido de docker-compose.yml:"
+            cat docker-compose.yml
             
-            # Iniciar servicios con recreación forzada
-            sudo docker-compose up -d --force-recreate
+            # Eliminar red existente si existe
+            echo "Eliminando red existente si existe..."
+            docker network rm orders-network || true
+            
+            # Iniciar servicios
+            echo "Iniciando servicios..."
+            docker-compose up -d --force-recreate
+            
+            # Esperar a que los contenedores estén en funcionamiento
+            echo "Esperando a que los contenedores estén en funcionamiento..."
+            sleep 10
+            
+            # Verificar estado de los contenedores
+            echo "Estado de los contenedores:"
+            docker ps
             
             # Mostrar contenedores en ejecución
-            sudo docker ps
+            echo "Contenedores en ejecución:"
+            docker ps
+            
+            # Mostrar logs del contenedor principal
+            echo "Logs del contenedor orders-update:"
+            docker logs orders-update
+            
+            # Información de depuración
+            echo "Información de depuración:"
+            echo "Redes Docker:"
+            docker network ls
+            echo "Volúmenes Docker:"
+            docker volume ls
+            echo "Logs detallados del contenedor orders-update (últimas 50 líneas):"
+            docker logs orders-update --tail 50
