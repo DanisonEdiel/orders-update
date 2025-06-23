@@ -113,7 +113,7 @@ jobs:
                 container_name: orders-db
                 restart: always
                 environment:
-                  POSTGRES_DB: orders_db
+                  POSTGRES_DB: orders-create
                   POSTGRES_USER: \${DB_USERNAME}
                   POSTGRES_PASSWORD: \${DB_PASSWORD}
                 ports:
