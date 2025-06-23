@@ -44,13 +44,13 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest,${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:${{ github.sha }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest,${{ secrets.DOCKERHUB_USERNAME }}/orders-update:${{ github.sha }}
           no-cache: true
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST_UPDATE }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
@@ -59,22 +59,22 @@ jobs:
           script_stop: true
           debug: true
           script: |
-            cd ~/orders-creator
+            cd ~/orders-update
             
             # Forzar eliminación de contenedores e imágenes
             sudo docker-compose down
-            sudo docker rm -f orders-creator orders-db orders-grafana || true
-            sudo docker rmi -f ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest || true
+            sudo docker rm -f orders-update || true
+            sudo docker rmi -f ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest || true
             
             # Forzar pull de la imagen más reciente
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
             
             # Crear .env file con secretos
             cat > .env << EOL
             DB_URL=${{ secrets.DB_URL }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            ORDER_CREATED_TOPIC_ARN=${{ secrets.ORDER_CREATED_TOPIC_ARN }}
+            ORDER_UPDATED_TOPIC_ARN=${{ secrets.ORDER_UPDATED_TOPIC_ARN }}
             EOL
             
             # Crear o actualizar docker-compose.yml
@@ -82,9 +82,9 @@ jobs:
             version: '3.8'
             
             services:
-              orders-creator:
-                image: ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest
-                container_name: orders-creator
+              orders-update:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
+                container_name: orders-update
                 restart: always
                 ports:
                   - "8080:8080"
@@ -92,40 +92,6 @@ jobs:
                   - .env
                 networks:
                   - orders-network
-            
-              postgres:
-                image: postgres:14
-                container_name: orders-db
-                restart: always
-                environment:
-                  POSTGRES_DB: orders_db
-                  POSTGRES_USER: \${DB_USERNAME}
-                  POSTGRES_PASSWORD: \${DB_PASSWORD}
-                ports:
-                  - "5432:5432"
-                volumes:
-                  - postgres-data:/var/lib/postgresql/data
-                networks:
-                  - orders-network
-            
-              grafana:
-                image: grafana/grafana
-                container_name: orders-grafana
-                restart: always
-                ports:
-                  - "3000:3000"
-                environment:
-                  - GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
-                  - GF_USERS_ALLOW_SIGN_UP=false
-                  - GF_INSTALL_PLUGINS=grafana-postgresql-datasource
-                volumes:
-                  - grafana-data:/var/lib/grafana
-                networks:
-                  - orders-network
-            
-            volumes:
-              postgres-data:
-              grafana-data:
             
             networks:
               orders-network:

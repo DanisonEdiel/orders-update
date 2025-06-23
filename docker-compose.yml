@@ -1,25 +1,73 @@
 version: '3.8'
 
 services:
-  orders-update:
-    build: .
-    container_name: orders-update
-    restart: always
-    ports:
-      - "8080:8080"
+  postgres:
+    image: postgres:14
+    container_name: orders-db
     environment:
-      - SERVER_PORT=8080
-      - DB_URL=${DB_URL:-jdbc:postgresql://postgres:5432/orders_db}
-      - DB_USERNAME=${DB_USERNAME:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-mock-access-key}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-mock-secret-key}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - ORDER_UPDATED_TOPIC_ARN=${ORDER_UPDATED_TOPIC_ARN:-arn:aws:sns:us-east-1:000000000000:mock-order-updated}
-      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://34.234.56.149:8000}
-    networks:
-      - orders-network
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-networks:
-  orders-network:
-    name: orders-network
+  localstack:
+    image: localstack/localstack
+    container_name: orders-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sns,cloudwatch,logs
+      - DEFAULT_REGION=us-east-1
+      - HOSTNAME_EXTERNAL=localstack
+    volumes:
+      - localstack-data:/tmp/localstack
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  wiremock:
+    image: wiremock/wiremock
+    container_name: orders-wiremock
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./wiremock:/home/wiremock
+    command:
+      - --verbose
+      - --global-response-templating
+
+  prometheus:
+    image: prom/prometheus
+    container_name: orders-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana
+    container_name: orders-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+volumes:
+  postgres-data:
+  localstack-data:
+  prometheus-data:
+  grafana-data:
