@@ -22,6 +22,9 @@ public class OrderEventPublisher {
     @Value("${cloud.aws.sns.topic.order-updated}")
     private String orderUpdatedTopicArn;
 
+    @Value("${cloud.aws.sns.enabled:false}")
+    private boolean snsEnabled;
+
     public void publishOrderUpdatedEvent(Order order) {
         OrderUpdatedEvent event = new OrderUpdatedEvent(
                 order.getOrderId(),
@@ -38,8 +41,20 @@ public class OrderEventPublisher {
                         .collect(Collectors.toList())
         );
 
+        if (!snsEnabled) {
+            log.info("SNS publishing is disabled. Skipping event publication for order ID: {}", order.getOrderId());
+            return;
+        }
+
         log.info("Publishing order updated event for order ID: {}", order.getOrderId());
-        snsTemplate.sendNotification(orderUpdatedTopicArn, event, "OrderUpdated");
+        try {
+            snsTemplate.sendNotification(orderUpdatedTopicArn, event, "OrderUpdated");
+            log.info("Successfully published order updated event for order ID: {}", order.getOrderId());
+        } catch (Exception e) {
+            log.warn("Failed to publish order updated event for order ID: {}. Error: {}. Continuing without publishing event.", 
+                    order.getOrderId(), e.getMessage());
+            // No volvemos a lanzar la excepción para que la actualización de la orden no falle
+        }
     }
 
     public record OrderUpdatedEvent(
