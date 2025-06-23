@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -30,18 +31,49 @@ public class OrderUpdateService {
     public Order updateOrder(String orderId, UpdateOrderRequest request) {
         log.info("Updating order with ID: {}", orderId);
         
-        // Find the order
-        Order order = orderRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new EntityNotFoundException("Order not found with ID: " + orderId));
+        // Find the order using the new method that checks both id and orderId
+        log.debug("Searching for order with ID: {} in the database (checking both id and orderId)", orderId);
+        Optional<Order> orderOpt = orderRepository.findByOrderIdOrId(orderId);
         
+        if (orderOpt.isEmpty()) {
+            log.error("Order not found with ID: {} (checked both id and orderId)", orderId);
+            // Intentar buscar por ID primario en caso de confusión de IDs
+            try {
+                UUID uuid = UUID.fromString(orderId);
+                Optional<Order> orderByPrimaryId = orderRepository.findById(uuid);
+                if (orderByPrimaryId.isPresent()) {
+                    log.info("Found order by primary ID: {}", orderId);
+                    return updateOrderInternal(orderByPrimaryId.get(), request);
+                }
+            } catch (IllegalArgumentException e) {
+                log.debug("The provided orderId is not a valid UUID: {}", orderId);
+            }
+            
+            throw new EntityNotFoundException("Order not found with ID: " + orderId);
+        }
+        
+        Order order = orderOpt.get();
+        log.info("Found order: ID={}, OrderID={}, UserID={}, Status={}", 
+                order.getId(), order.getOrderId(), order.getUserId(), order.getStatus());
+        
+        return updateOrderInternal(order, request);
+    }
+    
+    private Order updateOrderInternal(Order order, UpdateOrderRequest request) {
         // Check if the order belongs to the authenticated user
         String currentUserId = getCurrentUserId();
+        log.debug("Current authenticated user ID: {}", currentUserId);
+        log.debug("Order's user ID: {}", order.getUserId());
+        
         if (!order.getUserId().equals(currentUserId)) {
+            log.error("Access denied: User {} attempted to update order belonging to user {}", 
+                    currentUserId, order.getUserId());
             throw new AccessDeniedException("You don't have permission to update this order");
         }
         
         // Check if the order can be updated
         if (!order.isUpdatable()) {
+            log.error("Order cannot be updated because it is already completed or cancelled: {}", order.getStatus());
             throw new IllegalStateException("Order cannot be updated because it is already completed or cancelled");
         }
         
@@ -60,7 +92,7 @@ public class OrderUpdateService {
         // Publish the order updated event
         orderEventPublisher.publishOrderUpdatedEvent(updatedOrder);
         
-        log.info("Order updated successfully with ID: {}", orderId);
+        log.info("Order updated successfully with ID: {}", order.getOrderId());
         return updatedOrder;
     }
     
