@@ -80,7 +80,7 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:${{ github.sha }}
-        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:${{ github.sha }}
+        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
         cache-to: type=inline

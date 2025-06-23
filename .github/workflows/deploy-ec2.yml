@@ -56,35 +56,13 @@ jobs:
           port: 22
           timeout: 180s
           command_timeout: 20m
+          script_stop: true
           debug: true
           script: |
-            # Crear directorio si no existe
-            mkdir -p ~/orders-update
             cd ~/orders-update
             
-            # Instalar Docker si no está instalado
-            if ! command -v docker &> /dev/null; then
-              echo "Instalando Docker..."
-              sudo apt-get update
-              sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-              sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-              sudo apt-get update
-              sudo apt-get install -y docker-ce
-              sudo usermod -aG docker $USER
-              echo "Docker instalado correctamente"
-            fi
-            
-            # Instalar Docker Compose si no está instalado
-            if ! command -v docker-compose &> /dev/null; then
-              echo "Instalando Docker Compose..."
-              sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
-              echo "Docker Compose instalado correctamente"
-            fi
-            
             # Forzar eliminación de contenedores e imágenes
-            sudo docker-compose down || true
+            sudo docker-compose down
             sudo docker rm -f orders-update orders-db orders-grafana || true
             sudo docker rmi -f ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest || true
             
@@ -96,7 +74,7 @@ jobs:
             DB_URL=${{ secrets.DB_URL }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            ORDER_CREATED_TOPIC_ARN=${{ secrets.ORDER_CREATED_TOPIC_ARN }}
+            ORDER_UPDATED_TOPIC_ARN=${{ secrets.ORDER_UPDATED_TOPIC_ARN }}
             EOL
             
             # Crear o actualizar docker-compose.yml
@@ -114,7 +92,7 @@ jobs:
                   - .env
                 networks:
                   - orders-network
-            
+              
               postgres:
                 image: postgres:14
                 container_name: orders-db
@@ -129,7 +107,7 @@ jobs:
                   - postgres-data:/var/lib/postgresql/data
                 networks:
                   - orders-network
-            
+              
               grafana:
                 image: grafana/grafana
                 container_name: orders-grafana
