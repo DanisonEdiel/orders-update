@@ -44,7 +44,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest,${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:${{ github.sha }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest,${{ secrets.DOCKERHUB_USERNAME }}/orders-update:${{ github.sha }}
           no-cache: true
 
       - name: Deploy to EC2
@@ -59,15 +59,15 @@ jobs:
           script_stop: true
           debug: true
           script: |
-            cd ~/orders-creator
+            cd ~/orders-update
             
             # Forzar eliminación de contenedores e imágenes
             sudo docker-compose down
-            sudo docker rm -f orders-creator orders-db orders-grafana || true
-            sudo docker rmi -f ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest || true
+            sudo docker rm -f orders-update orders-create orders-grafana || true
+            sudo docker rmi -f ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest || true
             
             # Forzar pull de la imagen más reciente
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
             
             # Crear .env file con secretos
             cat > .env << EOL
@@ -82,9 +82,9 @@ jobs:
             version: '3.8'
             
             services:
-              orders-creator:
-                image: ${{ secrets.DOCKERHUB_USERNAME }}/orders-creator:latest
-                container_name: orders-creator
+              orders-update:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/orders-update:latest
+                container_name: orders-update
                 restart: always
                 ports:
                   - "8080:8080"
