@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  orders-update:
+    build: .
+    container_name: orders-update
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - DB_URL=${DB_URL:-jdbc:postgresql://postgres:5432/orders_db}
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-mock-access-key}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-mock-secret-key}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - ORDER_UPDATED_TOPIC_ARN=${ORDER_UPDATED_TOPIC_ARN:-arn:aws:sns:us-east-1:000000000000:mock-order-updated}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://34.234.56.149:8000}
+    networks:
+      - orders-network
+
+networks:
+  orders-network:
+    name: orders-network

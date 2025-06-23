@@ -1,0 +1,12 @@
+.git
+.github
+.gradle
+.idea
+build
+!build/libs/*.jar
+*.iml
+*.iws
+*.ipr
+.DS_Store
+.env
+README.md
